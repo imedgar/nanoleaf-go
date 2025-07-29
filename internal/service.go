@@ -171,3 +171,29 @@ func (s *NanoleafService) GetDeviceInfo(ctx context.Context, ip, token string) S
 		Data:    info,
 	}
 }
+
+// Set Brightness for a device
+func (s *NanoleafService) SetBrightness(ctx context.Context, ip, token string, b int) ServiceResult {
+	if ip == "" || token == "" {
+		return ServiceResult{
+			Success: false,
+			Message: "Device not paired. Please scan and pair first.",
+			Data:    nil,
+		}
+	}
+
+	err := s.client.SetBrightness(ctx, ip, token, b)
+	if err != nil {
+		return ServiceResult{
+			Success: false,
+			Message: fmt.Sprintf("Failed to set device brightness: %s", err.Error()),
+			Data:    nil,
+		}
+	}
+
+	return ServiceResult{
+		Success: true,
+		Message: fmt.Sprintf("Brightness set to %d successfully", b),
+		Data:    nil,
+	}
+}

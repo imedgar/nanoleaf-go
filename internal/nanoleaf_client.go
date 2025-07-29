@@ -10,6 +10,7 @@ type NanoleafClient interface {
 	Pair(ctx context.Context, ip string) (string, error)
 	SetPower(ctx context.Context, ip, token string, on bool) error
 	GetInfo(ctx context.Context, ip, token string) (interface{}, error)
+	SetBrightness(ctx context.Context, ip, token string, b int) error
 }
 
 type HTTPClient interface {
@@ -108,4 +109,35 @@ func (c *APIClient) GetInfo(ctx context.Context, ip, token string) (interface{},
 	}
 
 	return result, nil
+}
+
+// SetBrightness sets brightness for the Nanoleaf device.
+func (c *APIClient) SetBrightness(ctx context.Context, ip, token string, b int) error {
+	url := fmt.Sprintf("http://%s:16021/api/v1/%s/state", ip, token)
+
+	body, err := json.Marshal(map[string]interface{}{
+		"brightness": map[string]interface{}{
+			"value": b,
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("failed to alter brightness: %w", err)
+	}
+
+	req := &HTTPRequest{
+		Method: "PUT",
+		URL:    url,
+		Body:   body,
+	}
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("brightness request failed: %w", err)
+	}
+
+	if resp.StatusCode != 204 {
+		return fmt.Errorf("brightness request failed with status %d: %s", resp.StatusCode, string(resp.Body))
+	}
+
+	return nil
 }

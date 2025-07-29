@@ -1,4 +1,4 @@
-.PHONY: build test clean run lint fmt vet
+.PHONY: build test clean run lint fmt vet install uninstall
 
 # Build the application
 build:
@@ -32,6 +32,16 @@ lint:
 # Clean build artifacts
 clean:
 	rm -f nanoleaf-go coverage.out coverage.html
+
+# Install the application
+install: build
+	@echo "Installing nanoleaf-go to /usr/local/bin"
+	@mv nanoleaf-go /usr/local/bin/nanoleaf-go
+
+# Uninstall the application
+uninstall:
+	@echo "Removing nanoleaf-go from /usr/local/bin"
+	@rm -f /usr/local/bin/nanoleaf-go
 
 # Install dependencies
 deps:

@@ -236,3 +236,73 @@ func TestAPIClient_GetInfo(t *testing.T) {
 		})
 	}
 }
+
+func TestAPIClient_SetBrightness(t *testing.T) {
+	tests := []struct {
+		name          string
+		mockResponse  *HTTPResponse
+		mockError     error
+		brightness    int
+		expectedError bool
+	}{
+		{
+			name: "Successful SetBrightness",
+			mockResponse: &HTTPResponse{
+				StatusCode: http.StatusNoContent,
+			},
+			brightness:    50,
+			expectedError: false,
+		},
+		{
+			name:          "HTTP Error",
+			mockError:     errors.New("network error"),
+			brightness:    50,
+			expectedError: true,
+		},
+		{
+			name: "Non-204 Status Code",
+			mockResponse: &HTTPResponse{
+				StatusCode: http.StatusBadRequest,
+				Body:       []byte(`"error": "bad request"}`),
+			},
+			brightness:    50,
+			expectedError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockClient := &MockHTTPClient{
+				DoFunc: func(req *HTTPRequest) (*HTTPResponse, error) {
+					if strings.Contains(req.URL, "state") && req.Method == "PUT" {
+						var payload map[string]interface{}
+						if err := json.Unmarshal(req.Body, &payload); err != nil {
+							t.Errorf("Failed to unmarshal request body: %v", err)
+						}
+						if brightnessVal, ok := payload["brightness"].(map[string]interface{})["value"].(float64); ok {
+							if int(brightnessVal) != tt.brightness {
+								t.Errorf("Expected brightness value to be %d, got %f", tt.brightness, brightnessVal)
+							}
+						} else {
+							t.Error("Could not find 'brightness.value' in request body")
+						}
+					}
+					return tt.mockResponse, tt.mockError
+				},
+			}
+			apiClient := NewAPIClient(mockClient)
+
+			err := apiClient.SetBrightness(context.Background(), "192.168.1.100", "test_token", tt.brightness)
+
+			if tt.expectedError {
+				if err == nil {
+					t.Error("Expected an error, but got nil")
+				}
+			} else {
+				if err != nil {
+					t.Errorf("Expected no error, but got %v", err)
+				}
+			}
+		})
+	}
+}

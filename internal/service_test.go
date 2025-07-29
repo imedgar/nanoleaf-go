@@ -8,9 +8,10 @@ import (
 )
 
 type MockNanoleafClient struct {
-	PairFunc     func(ctx context.Context, ip string) (string, error)
-	SetPowerFunc func(ctx context.Context, ip, token string, on bool) error
-	GetInfoFunc  func(ctx context.Context, ip, token string) (interface{}, error)
+	PairFunc         func(ctx context.Context, ip string) (string, error)
+	SetPowerFunc     func(ctx context.Context, ip, token string, on bool) error
+	GetInfoFunc      func(ctx context.Context, ip, token string) (interface{}, error)
+	SetBrightnessFunc func(ctx context.Context, ip, token string, brightness int) error
 }
 
 func (m *MockNanoleafClient) Pair(ctx context.Context, ip string) (string, error) {
@@ -23,6 +24,10 @@ func (m *MockNanoleafClient) SetPower(ctx context.Context, ip, token string, on 
 
 func (m *MockNanoleafClient) GetInfo(ctx context.Context, ip, token string) (interface{}, error) {
 	return m.GetInfoFunc(ctx, ip, token)
+}
+
+func (m *MockNanoleafClient) SetBrightness(ctx context.Context, ip, token string, brightness int) error {
+	return m.SetBrightnessFunc(ctx, ip, token, brightness)
 }
 
 type MockDeviceScanner struct {
@@ -253,6 +258,65 @@ func TestNanoleafService_SetDevicePower(t *testing.T) {
 			}
 			service := NewNanoleafService(client, &MockDeviceScanner{}, &MockConfigManager{})
 			result := service.SetDevicePower(context.Background(), tt.ip, tt.token, tt.on)
+
+			if result.Success != tt.expectedSuccess {
+				t.Errorf("Expected success %v, got %v", tt.expectedSuccess, result.Success)
+			}
+			if result.Message != tt.expectedMessage {
+				t.Errorf("Expected message %q, got %q", tt.expectedMessage, result.Message)
+			}
+		})
+	}
+}
+
+func TestNanoleafService_SetBrightness(t *testing.T) {
+	tests := []struct {
+		name              string
+		ip                string
+		token             string
+		brightness        int
+		setBrightnessErr  error
+		expectedSuccess   bool
+		expectedMessage   string
+	}{
+		{
+			name:              "Successful Set Brightness",
+			ip:                "192.168.1.100",
+			token:             "test_token",
+			brightness:        50,
+			setBrightnessErr:  nil,
+			expectedSuccess:   true,
+			expectedMessage:   "Brightness set to 50 successfully",
+		},
+		{
+			name:              "No IP or Token",
+			ip:                "",
+			token:             "",
+			brightness:        50,
+			setBrightnessErr:  nil,
+			expectedSuccess:   false,
+			expectedMessage:   "Device not paired. Please scan and pair first.",
+		},
+		{
+			name:              "Set Brightness Error",
+			ip:                "192.168.1.100",
+			token:             "test_token",
+			brightness:        50,
+			setBrightnessErr:  errors.New("client set brightness error"),
+			expectedSuccess:   false,
+			expectedMessage:   "Failed to set device brightness: client set brightness error",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			client := &MockNanoleafClient{
+				SetBrightnessFunc: func(ctx context.Context, ip, token string, brightness int) error {
+					return tt.setBrightnessErr
+				},
+			}
+			service := NewNanoleafService(client, &MockDeviceScanner{}, &MockConfigManager{})
+			result := service.SetBrightness(context.Background(), tt.ip, tt.token, tt.brightness)
 
 			if result.Success != tt.expectedSuccess {
 				t.Errorf("Expected success %v, got %v", tt.expectedSuccess, result.Success)

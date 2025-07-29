@@ -6,9 +6,11 @@ import (
 	"nanoleaf-go/internal"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 
+	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
@@ -20,6 +22,7 @@ const (
 	pair
 	turnOn
 	turnOff
+	brightness
 	quit
 )
 
@@ -29,11 +32,13 @@ var (
 		"[p] Pair Device",
 		"[o] Turn On",
 		"[x] Turn Off",
+		"[b] Brightness",
 		"[q] Quit",
 	}
 	readyChoices = []string{
 		"[o] Turn On",
 		"[x] Turn Off",
+		"[b] Brightness",
 		"[q] Quit",
 	}
 )
@@ -51,21 +56,30 @@ type UI interface {
 type (
 	StatusMsg struct{}
 	model     struct {
-		cursor      int
-		choices     []string
-		message     string
-		error       bool
-		ip          string // first discovered device IP
-		token       string // token from pairing
-		app         *internal.NanoleafService
-		ctx         context.Context
-		cancel      context.CancelFunc
-		deviceReady bool
-		ui          UI // UI interface
+		cursor        int
+		choices       []string
+		message       string
+		error         bool
+		ip            string // first discovered device IP
+		token         string // token from pairing
+		app           *internal.NanoleafService
+		ctx           context.Context
+		cancel        context.CancelFunc
+		deviceReady   bool
+		ui            UI // UI interface
+		inputMode     bool
+		textInput     textinput.Model
+		inputPrompt   string
+		onInputAction func(string) tea.Cmd
 	}
 )
 
 func initModel() model {
+	ti := textinput.New()
+	ti.Focus()
+	ti.CharLimit = 3
+	ti.Width = 20
+
 	httpClient := internal.NewDefaultHTTPClient()
 	scanner := internal.NewNetworkScanner()
 	configManager := internal.NewFileConfigManager()
@@ -109,18 +123,54 @@ func initModel() model {
 		ctx:         ctx,
 		cancel:      cancel,
 		ui:          ui,
+		textInput:   ti,
 	}
 }
 
-func (m model) Init() tea.Cmd {
-	return tea.Tick(time.Second*5, func(t time.Time) tea.Msg {
-		return StatusMsg{}
-	})
+func (m *model) Init() tea.Cmd {
+	return tea.Batch(
+		textinput.Blink,
+		tea.Tick(time.Second*5, func(t time.Time) tea.Msg {
+			return StatusMsg{}
+		}),
+	)
 }
 
-func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	m.error = false
 
+	if m.inputMode {
+		return m.updateInput(msg)
+	}
+
+	return m.updateMenu(msg)
+}
+
+func (m *model) updateInput(msg tea.Msg) (tea.Model, tea.Cmd) {
+	var cmd tea.Cmd
+
+	if keyMsg, ok := msg.(tea.KeyMsg); ok {
+		switch keyMsg.String() {
+		case "enter":
+			inputValue := m.textInput.Value()
+			m.onInputAction(inputValue)
+			m.textInput.Reset()
+			m.inputMode = false
+			return m, nil
+		case "esc":
+			m.inputMode = false
+			return m, nil
+		case "ctrl+c":
+			m.cancel()
+			return m, tea.Quit
+		}
+	}
+
+	m.textInput, cmd = m.textInput.Update(msg)
+	return m, cmd
+}
+
+func (m *model) updateMenu(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case StatusMsg:
 		prevDeviceReady := m.deviceReady
@@ -153,6 +203,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, m.handleAction(turnOn)
 		case "x":
 			return m, m.handleAction(turnOff)
+		case "b":
+			return m, m.handleAction(brightness)
 		case "q":
 			return m, m.handleAction(quit)
 		case "up", "k":
@@ -165,7 +217,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.cursor++
 			}
 			return m, nil
-				case "enter":
+		case "enter":
 			// Determine the menuItem based on the selected choice string
 			var selectedMenuItem menuItem
 			switch m.choices[m.cursor] {
@@ -177,6 +229,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				selectedMenuItem = turnOn
 			case fullChoices[turnOff]:
 				selectedMenuItem = turnOff
+			case fullChoices[brightness]:
+				selectedMenuItem = brightness
 			case fullChoices[quit]:
 				selectedMenuItem = quit
 			}
@@ -245,6 +299,28 @@ func (m *model) handleAction(item menuItem) tea.Cmd {
 		} else {
 			m.message = m.ui.GetErrorStyle().Render(result.Message)
 		}
+	case brightness:
+		m.inputMode = true
+		m.inputPrompt = "Enter brightness (0-100)"
+		m.textInput.Placeholder = "0-100"
+		m.onInputAction = func(value string) tea.Cmd {
+			brightnessCtx, cancel := context.WithTimeout(m.ctx, 10*time.Second)
+			defer cancel()
+
+			b, err := strconv.Atoi(value)
+			if err != nil {
+				m.message = m.ui.GetErrorStyle().Render("brightness has to be numeric (0-100)")
+				return nil
+			}
+			result := m.app.SetBrightness(brightnessCtx, m.ip, m.token, b)
+			if result.Success {
+				m.message = m.ui.GetSuccessStyle().Render(result.Message)
+			} else {
+				m.message = m.ui.GetErrorStyle().Render(result.Message)
+			}
+			return nil
+		}
+		return textinput.Blink
 	case quit:
 		m.cancel() // Cancel any ongoing operations
 		return tea.Quit
@@ -252,10 +328,16 @@ func (m *model) handleAction(item menuItem) tea.Cmd {
 	return nil
 }
 
-func (m model) View() string {
+func (m *model) View() string {
 	header := m.ui.RenderHeader("Nanoleaf Controller", m.ip, m.deviceReady)
 	menu := m.ui.RenderMenu(m.choices, m.cursor)
-	logBox := m.ui.RenderLog(m.message)
+	var logBox string
+	if m.inputMode {
+		msg := fmt.Sprintf("%s\n%s\n(esc to back)", m.inputPrompt, m.textInput.View())
+		logBox = m.ui.RenderLog(msg)
+	} else {
+		logBox = m.ui.RenderLog(m.message)
+	}
 
 	return lipgloss.JoinVertical(lipgloss.Left, header, menu, logBox)
 }
@@ -266,7 +348,7 @@ func main() {
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
 	model := initModel()
-	p := tea.NewProgram(model)
+	p := tea.NewProgram(&model)
 
 	// Handle graceful shutdown
 	go func() {
