@@ -3,13 +3,13 @@ package internal
 import (
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
 
-// UI handles all TUI logic
 type UI struct {
 	device      *Device
 	cursor      int
@@ -40,8 +40,7 @@ func NewUI(device *Device) *UI {
 	ti.CharLimit = 3
 	ti.Width = 20
 
-	// Style the text input to match retro theme
-	ti.TextStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#FFFF00"))        // Electric yellow
+	ti.TextStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#FF9933"))        // Light orange
 	ti.PlaceholderStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#FF99FF")) // Electric pink
 	ti.Cursor.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("#00FFFF"))     // Cyan cursor
 
@@ -271,12 +270,13 @@ func (ui UI) handleBrightnessInput(value string) tea.Cmd {
 }
 
 func (ui UI) View() string {
-	// Header
+	// Title box
 	status := "Not Connected"
 	if ui.deviceReady {
 		status = fmt.Sprintf("Connected to %s", ui.device.GetDeviceIP())
 	}
-	header := titleStyle.Render(fmt.Sprintf("Nanoleaf Controller / %s", status))
+	titleContent := fmt.Sprintf("Nanoleaf Controller / %s", status)
+	titleBox := titleBoxStyle.Render(titleContent)
 
 	// Menu
 	choices := ui.getMenuChoices()
@@ -288,47 +288,65 @@ func (ui UI) View() string {
 			menuItems[i] = textStyle.Render(choice)
 		}
 	}
-	menu := menuStyle.Render(lipgloss.JoinVertical(lipgloss.Left, menuItems...))
 
-	// Log/Input
+	// Separator line
+	separator := separatorStyle.Render(strings.Repeat("─", 46)) // 46 chars to fit within 50 width box
+
+	// Log/Input content
 	var logContent string
 	if ui.inputMode {
-		prompt := textStyle.Render(ui.inputPrompt)
-		cancelText := textStyle.Render("(esc to cancel)")
+		prompt := lipgloss.NewStyle().Foreground(lipgloss.Color("#FF9933")).Render(ui.inputPrompt)        // Light orange
+		cancelText := lipgloss.NewStyle().Foreground(lipgloss.Color("#FF9933")).Render("(esc to cancel)") // Light orange
 		logContent = fmt.Sprintf("%s\n%s\n%s", prompt, ui.textInput.View(), cancelText)
 	} else {
 		logContent = ui.message
 	}
-	log := logStyle.Render(logContent)
 
-	return lipgloss.JoinVertical(lipgloss.Left, header, menu, log)
+	// Separator line
+	titleSeparator := separatorStyle.Render(strings.Repeat("─", 46)) // 46 chars to fit within 50 width box
+
+	// Combine menu and log in single box
+	combinedContent := lipgloss.JoinVertical(lipgloss.Left,
+		titleSeparator,
+		"",
+		lipgloss.JoinVertical(lipgloss.Left, menuItems...),
+		"",
+		separator,
+		"",
+		logContent,
+	)
+
+	mainBox := menuStyle.Render(combinedContent)
+
+	// Stack title box directly on main box (no spacing)
+	return lipgloss.JoinVertical(lipgloss.Center, titleBox, mainBox)
 }
 
 // Styles
 var (
-	titleStyle = lipgloss.NewStyle().
+	titleBoxStyle = lipgloss.NewStyle().
 			Bold(true).
-			Foreground(lipgloss.Color("#FF00FF"))
-		// MarginBottom(1)
+			Foreground(lipgloss.Color("#FF00FF")).
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(lipgloss.Color("#FF00FF")).
+			BorderBottom(false).
+			Padding(0, 2).
+			Width(50).
+			Align(lipgloss.Center)
 
 	menuStyle = lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
 			BorderForeground(lipgloss.Color("#00FFFF")).
+			BorderTop(false).
 			Padding(1, 2).
-			MarginTop(1)
+			Width(50)
 
 	selectedStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#000000")).
-			Background(lipgloss.Color("#FFFF00"))
+			Background(lipgloss.Color("#d4d177"))
 
-	logStyle = lipgloss.NewStyle().
-			Border(lipgloss.RoundedBorder()).
-			BorderForeground(lipgloss.Color("#FF6600")).
-			Padding(1, 2).
-			MarginTop(1).
-			Height(3)
-
-	errorStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("#FF0080"))
-	successStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#00FF80"))
-	textStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("#FF99FF")) // Electric pink for default text
+	errorStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("#FF0080")) // Error red
+	successStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("#00FF80")) // Success green
+	textStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color("#FF99FF")) // Electric pink for default text
+	separatorStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#FFFF00")) // Electric yellow for separators
 )
