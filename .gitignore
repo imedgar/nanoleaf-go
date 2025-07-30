@@ -19,6 +19,7 @@ go.work
 
 # Local binary
 nanoleaf-go
+nanoleaf
 
 # Editor/IDE specific
 .idea/
