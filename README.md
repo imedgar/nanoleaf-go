@@ -1,14 +1,16 @@
 # Nanoleaf Go Controller
 
 A TUI for controlling Nanoleaf devices written in Go.
-![TUI](ui.png)
+
+![TUI scan](ui_scan.png)
+![TUI paired](ui_paired.png)
 
 ## Features
 
 - **Device Discovery**: Automatically scan for Nanoleaf devices on your network
 - **Device Pairing**: Securely pair with Nanoleaf devices using the official API
 - **Power Control**: Turn devices on/off with simple commands
-- Brightness: Set device brightness
+- **Brightness**: Set device brightness
 - **Configuration Management**: Automatic saving and loading of device configurations
 - **Interactive UI**: TUI built with Bubble Tea
 
@@ -52,8 +54,10 @@ Use the arrow keys to navigate the menu and press Enter to select options:
 2. **Pair Device**: Pair with a discovered device (requires physical button press)
 3. **Turn On**: Turn on the paired device
 4. **Turn Off**: Turn off the paired device
-5. Brightness: Set device brightness
+5. **Brightness**: Set device brightness
 6. **Quit**: Exit the application
+
+**When pairing power button has to be pressed for ~5 seconds**
 
 ### Configuration
 
