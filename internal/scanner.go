@@ -53,7 +53,7 @@ func scanForDevices(ctx context.Context) ([]string, error) {
 		wg.Add(1)
 		go func(ip string) {
 			defer wg.Done()
-			
+
 			conn, err := net.DialTimeout("tcp", ip+":16021", 100*time.Millisecond)
 			if err == nil {
 				conn.Close()

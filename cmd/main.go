@@ -2,12 +2,12 @@ package main
 
 import (
 	"fmt"
+	"nanoleaf-go/internal"
 	"os"
 	"os/signal"
 	"syscall"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"nanoleaf-go/internal"
 )
 
 func main() {
