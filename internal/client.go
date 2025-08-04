@@ -22,9 +22,16 @@ func newClient() *NanoleafClient {
 	}
 }
 
+func (c *NanoleafClient) buildURL(ip, path string) string {
+	if ip[0:4] == "http" {
+		return fmt.Sprintf("%s/%s", ip, path)
+	}
+	return fmt.Sprintf("http://%s:16021/%s", ip, path)
+}
+
 func (c *NanoleafClient) pair(ctx context.Context, ip string) (string, error) {
-	url := fmt.Sprintf("http://%s:16021/api/v1/new", ip)
-	
+	url := c.buildURL(ip, "api/v1/new")
+
 	req, err := http.NewRequestWithContext(ctx, "POST", url, nil)
 	if err != nil {
 		return "", err
@@ -48,7 +55,7 @@ func (c *NanoleafClient) pair(ctx context.Context, ip string) (string, error) {
 	var result struct {
 		AuthToken string `json:"auth_token"`
 	}
-	
+
 	if err := json.Unmarshal(body, &result); err != nil {
 		return "", fmt.Errorf("failed to parse pairing response: %w", err)
 	}
@@ -57,8 +64,8 @@ func (c *NanoleafClient) pair(ctx context.Context, ip string) (string, error) {
 }
 
 func (c *NanoleafClient) getInfo(ctx context.Context, ip, token string) (map[string]interface{}, error) {
-	url := fmt.Sprintf("http://%s:16021/api/v1/%s", ip, token)
-	
+	url := c.buildURL(ip, fmt.Sprintf("api/v1/%s", token))
+
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		return nil, err
@@ -83,22 +90,22 @@ func (c *NanoleafClient) getInfo(ctx context.Context, ip, token string) (map[str
 }
 
 func (c *NanoleafClient) setPower(ctx context.Context, ip, token string, on bool) error {
-	url := fmt.Sprintf("http://%s:16021/api/v1/%s/state", ip, token)
-	
+	url := c.buildURL(ip, fmt.Sprintf("api/v1/%s/state", token))
+
 	payload := map[string]interface{}{
 		"on": map[string]bool{"value": on},
 	}
-	
+
 	return c.sendStateUpdate(ctx, url, payload)
 }
 
 func (c *NanoleafClient) setBrightness(ctx context.Context, ip, token string, brightness int) error {
-	url := fmt.Sprintf("http://%s:16021/api/v1/%s/state", ip, token)
-	
+	url := c.buildURL(ip, fmt.Sprintf("api/v1/%s/state", token))
+
 	payload := map[string]interface{}{
 		"brightness": map[string]int{"value": brightness},
 	}
-	
+
 	return c.sendStateUpdate(ctx, url, payload)
 }
 

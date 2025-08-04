@@ -50,12 +50,12 @@ func (d *Device) PairDevice(ctx context.Context) error {
 	if d.config.IP == "" {
 		return fmt.Errorf("no device IP set")
 	}
-	
+
 	token, err := d.client.pair(ctx, d.config.IP)
 	if err != nil {
 		return err
 	}
-	
+
 	d.config.Token = token
 	return saveConfig(d.config.IP, d.config.Token)
 }
