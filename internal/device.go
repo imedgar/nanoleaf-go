@@ -8,8 +8,9 @@ import (
 
 // Device handles all device operations
 type Device struct {
-	client *NanoleafClient
-	config Config
+	client  *NanoleafClient
+	config  Config
+	effects []string
 }
 
 func NewDevice() *Device {
@@ -35,7 +36,21 @@ func (d *Device) IsDeviceReady(ctx context.Context) bool {
 		return false
 	}
 	_, err := d.client.getInfo(ctx, d.config.IP, d.config.Token)
-	return err == nil
+	if err == nil {
+		d.loadEffects(ctx)
+		return true
+	}
+	return false
+}
+
+func (d *Device) loadEffects(ctx context.Context) {
+	if effects, err := d.client.listEffects(ctx, d.config.IP, d.config.Token); err == nil {
+		d.effects = effects
+	}
+}
+
+func (d *Device) ListEffects(ctx context.Context) ([]string, error) {
+	return d.client.listEffects(ctx, d.config.IP, d.config.Token)
 }
 
 func (d *Device) ScanForDevices(ctx context.Context) ([]string, error) {
