@@ -15,6 +15,7 @@ type UI struct {
 	cursor      int
 	message     string
 	inputMode   bool
+	inputChoice string
 	inputPrompt string
 	textInput   textinput.Model
 	deviceReady bool
@@ -77,7 +78,12 @@ func (ui UI) updateInput(msg tea.Msg) (tea.Model, tea.Cmd) {
 			value := ui.textInput.Value()
 			ui.inputMode = false
 			ui.textInput.SetValue("")
-			return ui, ui.handleBrightnessInput(value)
+			switch ui.inputChoice {
+			case "brightness":
+				return ui, ui.handleBrightnessInput(value)
+			case "effect":
+				return ui, ui.handleBrightnessInput(value)
+			}
 		case "esc":
 			ui.inputMode = false
 			ui.textInput.SetValue("")
@@ -175,7 +181,7 @@ func (ui UI) updateMenu(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (ui UI) getMenuChoices() []string {
 	if ui.deviceReady {
-		return []string{"[o] Turn On", "[x] Turn Off", "[b] Brightness", "[q] Quit"}
+		return []string{"[o] Turn On", "[x] Turn Off", "[b] Brightness", "[e] Set effect", "[q] Quit"}
 	}
 	return []string{"[s] Scan Devices", "[p] Pair Device", "[q] Quit"}
 }
@@ -198,9 +204,17 @@ func (ui UI) handleMenuSelect() (tea.Model, tea.Cmd) {
 		return ui, ui.handleTurnOff()
 	case "[b] Brightness":
 		ui.inputMode = true
+		ui.inputChoice = "brightness"
 		ui.inputPrompt = "Enter brightness (0-100)"
 		ui.textInput.Placeholder = "0-100"
 		return ui, textinput.Blink
+	case "[e] Set effect":
+		ui.inputMode = true
+		ui.inputChoice = "effect"
+		ui.inputPrompt = fmt.Sprintf("Set effect (%s)", strings.Join(ui.device.effects, ", "))
+		ui.textInput.Placeholder = "Effect name"
+		return ui, textinput.Blink
+
 	case "[q] Quit":
 		return ui, tea.Quit
 	}
