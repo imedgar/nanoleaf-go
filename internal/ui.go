@@ -38,7 +38,6 @@ type (
 func NewUI(device *Device) *UI {
 	ti := textinput.New()
 	ti.Focus()
-	ti.CharLimit = 3
 	ti.Width = 20
 
 	ti.TextStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#FF9933"))        // Light orange
@@ -82,7 +81,7 @@ func (ui UI) updateInput(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case "brightness":
 				return ui, ui.handleBrightnessInput(value)
 			case "effect":
-				return ui, ui.handleBrightnessInput(value)
+				return ui, ui.handleSetEffect(value)
 			}
 		case "esc":
 			ui.inputMode = false
@@ -203,12 +202,14 @@ func (ui UI) handleMenuSelect() (tea.Model, tea.Cmd) {
 	case "[x] Turn Off":
 		return ui, ui.handleTurnOff()
 	case "[b] Brightness":
+		ui.textInput.CharLimit = 3
 		ui.inputMode = true
 		ui.inputChoice = "brightness"
 		ui.inputPrompt = "Enter brightness (0-100)"
 		ui.textInput.Placeholder = "0-100"
 		return ui, textinput.Blink
 	case "[e] Set effect":
+		ui.textInput.CharLimit = 50
 		ui.inputMode = true
 		ui.inputChoice = "effect"
 		ui.inputPrompt = fmt.Sprintf("Set effect (%s)", strings.Join(ui.device.effects, ", "))
@@ -280,6 +281,15 @@ func (ui UI) handleBrightnessInput(value string) tea.Cmd {
 		defer cancel()
 		err := ui.device.SetBrightness(ctx, brightness)
 		return actionResultMsg{message: fmt.Sprintf("Brightness set to %d", brightness), err: err}
+	}
+}
+
+func (ui UI) handleSetEffect(value string) tea.Cmd {
+	return func() tea.Msg {
+		ctx, cancel := ui.device.createContext()
+		defer cancel()
+		err := ui.device.SetEffect(ctx, value)
+		return actionResultMsg{message: fmt.Sprintf("Set effect to %s", value), err: err}
 	}
 }
 

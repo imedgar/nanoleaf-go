@@ -3,6 +3,7 @@ package internal
 import (
 	"context"
 	"fmt"
+	"slices"
 	"time"
 )
 
@@ -88,6 +89,13 @@ func (d *Device) SetBrightness(ctx context.Context, brightness int) error {
 		return fmt.Errorf("brightness must be between 0 and 100")
 	}
 	return d.client.setBrightness(ctx, d.config.IP, d.config.Token, brightness)
+}
+
+func (d *Device) SetEffect(ctx context.Context, effect string) error {
+	if !slices.Contains(d.effects, effect) {
+		return fmt.Errorf("device does not have effect %s", effect)
+	}
+	return d.client.setEffect(ctx, d.config.IP, d.config.Token, effect)
 }
 
 func (d *Device) GetDeviceIP() string {

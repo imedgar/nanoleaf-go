@@ -135,6 +135,16 @@ func (c *NanoleafClient) setBrightness(ctx context.Context, ip, token string, br
 	return c.sendStateUpdate(ctx, url, payload)
 }
 
+func (c *NanoleafClient) setEffect(ctx context.Context, ip, token, effect string) error {
+	url := c.buildURL(ip, fmt.Sprintf("api/v1/%s/effects", token))
+
+	payload := map[string]interface{}{
+		"select": effect,
+	}
+
+	return c.sendStateUpdate(ctx, url, payload)
+}
+
 func (c *NanoleafClient) sendStateUpdate(ctx context.Context, url string, payload map[string]interface{}) error {
 	data, err := json.Marshal(payload)
 	if err != nil {
