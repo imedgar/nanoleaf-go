@@ -3,13 +3,15 @@ package internal
 import (
 	"context"
 	"fmt"
+	"slices"
 	"time"
 )
 
 // Device handles all device operations
 type Device struct {
-	client *NanoleafClient
-	config Config
+	client  *NanoleafClient
+	config  Config
+	effects []string
 }
 
 func NewDevice() *Device {
@@ -35,7 +37,21 @@ func (d *Device) IsDeviceReady(ctx context.Context) bool {
 		return false
 	}
 	_, err := d.client.getInfo(ctx, d.config.IP, d.config.Token)
-	return err == nil
+	if err == nil {
+		d.loadEffects(ctx)
+		return true
+	}
+	return false
+}
+
+func (d *Device) loadEffects(ctx context.Context) {
+	if effects, err := d.client.listEffects(ctx, d.config.IP, d.config.Token); err == nil {
+		d.effects = effects
+	}
+}
+
+func (d *Device) ListEffects(ctx context.Context) ([]string, error) {
+	return d.client.listEffects(ctx, d.config.IP, d.config.Token)
 }
 
 func (d *Device) ScanForDevices(ctx context.Context) ([]string, error) {
@@ -73,6 +89,13 @@ func (d *Device) SetBrightness(ctx context.Context, brightness int) error {
 		return fmt.Errorf("brightness must be between 0 and 100")
 	}
 	return d.client.setBrightness(ctx, d.config.IP, d.config.Token, brightness)
+}
+
+func (d *Device) SetEffect(ctx context.Context, effect string) error {
+	if !slices.Contains(d.effects, effect) {
+		return fmt.Errorf("device does not have effect %s", effect)
+	}
+	return d.client.setEffect(ctx, d.config.IP, d.config.Token, effect)
 }
 
 func (d *Device) GetDeviceIP() string {

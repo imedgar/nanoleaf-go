@@ -89,6 +89,32 @@ func (c *NanoleafClient) getInfo(ctx context.Context, ip, token string) (map[str
 	return info, nil
 }
 
+func (c *NanoleafClient) listEffects(ctx context.Context, ip, token string) ([]string, error) {
+	url := c.buildURL(ip, fmt.Sprintf("api/v1/%s/effects/effectsList", token))
+
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("get list effects request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("get list effects failed with status %d", resp.StatusCode)
+	}
+
+	var effects []string
+	if err := json.NewDecoder(resp.Body).Decode(&effects); err != nil {
+		return nil, fmt.Errorf("failed to parse list effects response: %w", err)
+	}
+
+	return effects, nil
+}
+
 func (c *NanoleafClient) setPower(ctx context.Context, ip, token string, on bool) error {
 	url := c.buildURL(ip, fmt.Sprintf("api/v1/%s/state", token))
 
@@ -104,6 +130,16 @@ func (c *NanoleafClient) setBrightness(ctx context.Context, ip, token string, br
 
 	payload := map[string]interface{}{
 		"brightness": map[string]int{"value": brightness},
+	}
+
+	return c.sendStateUpdate(ctx, url, payload)
+}
+
+func (c *NanoleafClient) setEffect(ctx context.Context, ip, token, effect string) error {
+	url := c.buildURL(ip, fmt.Sprintf("api/v1/%s/effects", token))
+
+	payload := map[string]interface{}{
+		"select": effect,
 	}
 
 	return c.sendStateUpdate(ctx, url, payload)
